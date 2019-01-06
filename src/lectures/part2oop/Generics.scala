@@ -1,5 +1,7 @@
 package lectures.part2oop
 
+import scala.annotation.tailrec
+
 object Generics extends App {
 
   class MyListTemp[+A] {
@@ -50,8 +52,9 @@ object Generics extends App {
 
     def foreach(myFunction: A => Unit):Unit
     def sort(sortFunction: (A,A) => Int): GenericMyList[A]
-    def insertOrderedElem[B >: A](elem: B, sortFunction: (B, B) => Int): GenericMyList[B]
-  }
+    def zipWith[B >: A,C](list:GenericMyList[B], zipFunc:(B,B) => C): GenericMyList[C]
+    def fold[B >: A](startElem:B)(foldFunc:(B,B) => B): B
+   }
 
   case object EmptyGenericList extends GenericMyList[Nothing] {
     def head: Nothing = throw new NoSuchElementException
@@ -71,9 +74,9 @@ object Generics extends App {
 
     def foreach(myFunction: Nothing => Unit): Unit = myFunction
     def sort(sortFunction: (Nothing, Nothing) => Int): GenericMyList[Nothing] = EmptyGenericList
+    def zipWith[B >: Nothing,C](list: GenericMyList[B], zipFunc: (B, B) => C): GenericMyList[C] = EmptyGenericList
 
-    override def insertOrderedElem[B >: Nothing](elem: B, sortFunction: (B, B) => Int): GenericMyList[B] =
-      new ConsGeneric(elem, EmptyGenericList)
+    def fold[B >: Nothing](startElem: B)(foldFunc: (B, B) => B): B = startElem
   }
 
   case class ConsGeneric[+A](h:A, t:GenericMyList[A]) extends GenericMyList[A] {
@@ -117,21 +120,68 @@ object Generics extends App {
       t.foreach(myFunction)
     }
 
-    def insertOrderedElem[B >: A](elem: B, sortFunction: (B, B) => Int): GenericMyList[B] =
-      if(sortFunction(elem,h) < 0)
-        new ConsGeneric(elem, this)
-       else
-        new ConsGeneric(h, t.insertOrderedElem(elem, sortFunction))
 
     def sort(sortFunction: (A, A) => Int): GenericMyList[A] = {
+      @tailrec
+      def insertOrderedElem[B >: A](originalList: GenericMyList[A],
+                                    elem: B,
+                                    sortFunction: (B, B) => Int,
+                                    accumPreviousElems: GenericMyList[B]): GenericMyList[B] =
+        if(originalList.isEmpty)
+          new ConsGeneric(elem, EmptyGenericList)
+        else if(sortFunction(elem,originalList.head) > 0)
+          accumPreviousElems ++ new ConsGeneric(elem, originalList)
+        else
+          insertOrderedElem(originalList.tail, elem, sortFunction, accumPreviousElems.add(originalList.head))
+
+      @tailrec
       def innerSort(current: GenericMyList[A], sortFunction: (A, A) => Int, sortedAccum:GenericMyList[A]): GenericMyList[A] = {
         if(current.isEmpty)
           sortedAccum
         else {
-          innerSort(current.tail, sortFunction, sortedAccum.insertOrderedElem(current.head, sortFunction))
+          innerSort(current.tail, sortFunction, insertOrderedElem(sortedAccum, current.head, sortFunction, EmptyGenericList))
         }
       }
       innerSort(this, sortFunction, EmptyGenericList)
+    }
+
+    def zipWith[B >: A,C](listToZipWith: GenericMyList[B], zipFunc: (B, B) => C): GenericMyList[C] = {
+      @tailrec
+      def innerZip(listA:GenericMyList[B],
+                   listB:GenericMyList[B],
+                   zipFunc: (B, B) => C,
+                   accumZipList: GenericMyList[C]):GenericMyList[C] = {
+        if(listA.isEmpty || listB.isEmpty)
+          accumZipList
+        else {
+          innerZip(
+            listA.tail,
+            listB.tail,
+            zipFunc,
+            accumZipList.add(
+              zipFunc(
+                listA.head,
+                listB.head
+              )
+            )
+          )
+        }
+      }
+
+      innerZip(this,listToZipWith,zipFunc,EmptyGenericList)
+    }
+
+    def fold[B >: A](startElem: B)(foldFunc: (B, B) => B): B = {
+      @tailrec
+      def innerFold(listToFold: GenericMyList[A], foldFunc: (B, B) => B, accumValue:B):B = {
+        if(listToFold.isEmpty)
+          accumValue
+        else {
+          innerFold(listToFold.tail, foldFunc, foldFunc(listToFold.head, accumValue))
+        }
+      }
+
+      innerFold(this,foldFunc,startElem)
     }
   }
 
@@ -187,15 +237,15 @@ object Generics extends App {
   val anotherList = new ConsGeneric[Int](1, new ConsGeneric[Int](3, new ConsGeneric[Int](5, new ConsGeneric[Int](7, EmptyGenericList))))
   println("Foreach test: ")
   anotherList.foreach(x => println(s"Foreach: $x"))
-
-  def orderFunc(elem1:Int, elem2:Int): Int = if(elem1 < elem2) -1 else +1
-  println(s"insertOrderedElem: ${anotherList.insertOrderedElem(2, orderFunc).toString}")
-
+  def orderFunc(elem1:Int, elem2:Int): Int = elem2-elem1
   val unorderedList = new ConsGeneric[Int](7, new ConsGeneric[Int](10, new ConsGeneric[Int](3, new ConsGeneric[Int](1, EmptyGenericList))))
   println(s"Sort test: ${unorderedList.sort(orderFunc).toString}")
 
+  val zipListA = new ConsGeneric[Int](1, new ConsGeneric[Int](3, new ConsGeneric[Int](5, new ConsGeneric[Int](7, EmptyGenericList))))
+  val zipListB = new ConsGeneric[Int](2, new ConsGeneric[Int](4, new ConsGeneric[Int](6, new ConsGeneric[Int](8, EmptyGenericList))))
+  println(s"zipWith test: ${zipListA.zipWith(zipListB, (x:Int,y:Int) => x*y)}")
 
-
+  println(s"fold test: ${zipListA.fold(0)((x:Int,y:Int) => x+y)}")
 
 
 
