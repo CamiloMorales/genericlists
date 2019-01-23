@@ -38,17 +38,24 @@ object Generics extends App {
     def head: A
     def tail: GenericMyList[A]
     def isEmpty: Boolean
+    def length: Int
     def add[B >: A](myListItem: B): GenericMyList[B]
     def prepend[B >: A](elem: B): GenericMyList[B]
     def printElements: String
     override def toString: String = s"[$printElements]"
-    def map[B>:A,C](transformer:MyTransformer[B,C]):GenericMyList[C]
+    /*def map[B>:A,C](transformer:MyTransformer[B,C]):GenericMyList[C]
     def filter(predicate:MyPredicate[A]):GenericMyList[A]
-    def flatMap[B>:A,C](transformer:MyTransformer[B,GenericMyList[C]]):GenericMyList[C]
+    def flatMap[B>:A,C](transformer:MyTransformer[B,GenericMyList[C]]):GenericMyList[C]*/
+
+    def map[B](transformer:A => B):GenericMyList[B]
+    def flatMap[B](transformer:A => GenericMyList[B]):GenericMyList[B]
+    def filter(predicate:A => Boolean):GenericMyList[A]
+    def withFilter(q: A => Boolean): GenericMyList[A]
+
     def ++[B >: A](toAdd:GenericMyList[B]):GenericMyList[B]
 
-    def functionFilter(myRealFunction:(A => Boolean)):GenericMyList[A]
-    def functionMap[B>:A,C](myRealFunction:(B => C)):GenericMyList[C]
+    //def functionFilter(myRealFunction:(A => Boolean)):GenericMyList[A]
+    //def functionMap[B>:A,C](myRealFunction:(B => C)):GenericMyList[C]
 
     def foreach(myFunction: A => Unit):Unit
     def sort(sortFunction: (A,A) => Int): GenericMyList[A]
@@ -60,21 +67,31 @@ object Generics extends App {
     def head: Nothing = throw new NoSuchElementException
     def tail: GenericMyList[Nothing] = throw new NoSuchElementException
     def isEmpty: Boolean = true
+    def length: Int = 0
     def add[B >: Nothing](myListItem: B): GenericMyList[B] = new ConsGeneric(myListItem, EmptyGenericList)
     def prepend[B >: Nothing](elem: B): GenericMyList[B] = new ConsGeneric(elem, EmptyGenericList)
     def printElements: String = ""
 
-    def map[B >: Nothing, C](transformer: MyTransformer[B, C]): GenericMyList[C] = EmptyGenericList
+    /*def map[B >: Nothing, C](transformer: MyTransformer[B, C]): GenericMyList[C] = EmptyGenericList
     def filter(predicate: MyPredicate[Nothing]): GenericMyList[Nothing] = EmptyGenericList
-    def flatMap[B >: Nothing, C](transformer: MyTransformer[B, GenericMyList[C]]): GenericMyList[C] = EmptyGenericList
+    def flatMap[B >: Nothing, C](transformer: MyTransformer[B, GenericMyList[C]]): GenericMyList[C] = EmptyGenericList*/
     def ++[B >: Nothing](toAdd:GenericMyList[B]):GenericMyList[B] = toAdd
 
-    def functionFilter(myRealFunction:(Nothing => Boolean)):GenericMyList[Nothing] = EmptyGenericList
-    def functionMap[B >: Nothing, C](myRealFunction: B => C): GenericMyList[C] = EmptyGenericList
+    def map[B](transformer:Nothing => B):GenericMyList[B] = EmptyGenericList
+    def flatMap[B](transformer:Nothing => GenericMyList[B]):GenericMyList[B] = EmptyGenericList
+    def filter(predicate:Nothing => Boolean):GenericMyList[Nothing] = EmptyGenericList
+    def withFilter(predicate:Nothing => Boolean):GenericMyList[Nothing] = EmptyGenericList
 
-    def foreach(myFunction: Nothing => Unit): Unit = myFunction
+    //def functionFilter(myRealFunction:(Nothing => Boolean)):GenericMyList[Nothing] = EmptyGenericList
+    //def functionMap[B >: Nothing, C](myRealFunction: B => C): GenericMyList[C] = EmptyGenericList
+
+    def foreach(myFunction: Nothing => Unit): Unit = ()
     def sort(sortFunction: (Nothing, Nothing) => Int): GenericMyList[Nothing] = EmptyGenericList
-    def zipWith[B >: Nothing,C](list: GenericMyList[B], zipFunc: (B, B) => C): GenericMyList[C] = EmptyGenericList
+    def zipWith[B >: Nothing,C](list: GenericMyList[B], zipFunc: (B, B) => C): GenericMyList[C] =
+      if(!list.isEmpty)
+        throw new RuntimeException("Lists dont have the same length")
+      else
+        EmptyGenericList
 
     def fold[B >: Nothing](startElem: B)(foldFunc: (B, B) => B): B = startElem
   }
@@ -83,36 +100,48 @@ object Generics extends App {
     def head: A = h
     def tail: GenericMyList[A] = t
     def isEmpty: Boolean = false
+    def length: Int = 1 + t.length
     def add[B >: A](myListItem: B): GenericMyList[B] = new ConsGeneric(h, t.add(myListItem))
     def prepend[B >: A](elem: B): GenericMyList[B] = new ConsGeneric[B](elem, this)
     def printElements: String = s"$h ${t.printElements}"
 
-    def map[B>:A,C](transformer: MyTransformer[B, C]): GenericMyList[C] = {
+    /*def map[B>:A,C](transformer: MyTransformer[B, C]): GenericMyList[C] = {
       new ConsGeneric(transformer.transform(this.h), this.t.map(transformer))
+    }*/
+
+    def map[B](transformer:A => B):GenericMyList[B] = {
+      new ConsGeneric(transformer(h), t.map(transformer))
     }
 
-    def functionMap[B >: A, C](myRealFunction:(B => C)): ConsGeneric[C] = {
-      new ConsGeneric(myRealFunction(h), t.functionMap(myRealFunction))
-    }
-
-    def filter(predicate: MyPredicate[A]): GenericMyList[A] = {
+    /*def filter(predicate: MyPredicate[A]): GenericMyList[A] = {
         if(predicate.test(this.h))
           new ConsGeneric(this.h, t.filter(predicate))
         else
           t.filter(predicate)
-    }
+    }*/
 
     def ++[B >: A](toAdd:GenericMyList[B]):GenericMyList[B] = new ConsGeneric(h, t ++ toAdd)
 
-    def flatMap[B>:A,C](transformer: MyTransformer[B, GenericMyList[C]]): GenericMyList[C] = {
+    /*def flatMap[B>:A,C](transformer: MyTransformer[B, GenericMyList[C]]): GenericMyList[C] = {
       transformer.transform(h) ++ t.flatMap(transformer)
+    }*/
+
+    def flatMap[B](transformer:A => GenericMyList[B]):GenericMyList[B] = {
+      transformer(h) ++ t.flatMap(transformer)
     }
 
-    def functionFilter(myRealFunction:(A => Boolean)):GenericMyList[A] = {
+    def filter(myRealFunction:(A => Boolean)):GenericMyList[A] = {
       if(myRealFunction(h))
-        new ConsGeneric(this.h, t.functionFilter(myRealFunction))
+        new ConsGeneric(this.h, t.filter(myRealFunction))
       else
-        t.functionFilter(myRealFunction)
+        t.filter(myRealFunction)
+    }
+
+    def withFilter(myRealFunction:(A => Boolean)):GenericMyList[A] = {
+      if(myRealFunction(h))
+        new ConsGeneric(this.h, t.filter(myRealFunction))
+      else
+        t.filter(myRealFunction)
     }
 
     def foreach(myFunction: A => Unit): Unit = {
@@ -168,7 +197,16 @@ object Generics extends App {
         }
       }
 
-      innerZip(this,listToZipWith,zipFunc,EmptyGenericList)
+      //Non-tail recursive version.  (shorter more readable version)
+      def innerZip2()= {
+        new ConsGeneric(zipFunc(h,listToZipWith.head), t.zipWith(listToZipWith.tail, zipFunc))
+      }
+
+      if(listToZipWith.length != this.length)
+        throw new RuntimeException("Lists dont have the same length")
+      else
+        //innerZip(this,listToZipWith,zipFunc,EmptyGenericList)
+        innerZip2
     }
 
     def fold[B >: A](startElem: B)(foldFunc: (B, B) => B): B = {
@@ -179,7 +217,7 @@ object Generics extends App {
         else {
           innerFold(listToFold.tail, foldFunc, foldFunc(listToFold.head, accumValue))
         }
-      }
+    }
 
       innerFold(this,foldFunc,startElem)
     }
@@ -225,18 +263,19 @@ object Generics extends App {
 
   //Test
   val newList = new ConsGeneric[Int](1, new ConsGeneric[Int](2, new ConsGeneric[Int](3, new ConsGeneric[Int](4, EmptyGenericList))))
-  println(s"Filter test: ${newList.filter(new EvenPredicate).toString}")
-  println(s"Map test: ${newList.map(new Int2StringTransformer).toString}")
-  println(s"FlatMap test: ${newList.flatMap(new Int2ListTransformer).toString}")
+  //println(s"Filter test: ${newList.filter(new EvenPredicate).toString}")
+  //println(s"Map test: ${newList.map(new Int2StringTransformer).toString}")
+  //println(s"FlatMap test: ${newList.flatMap(new Int2ListTransformer).toString}")
 
-  println(s"Function Filter test: ${newList.functionFilter(x => x % 2 == 0).toString}")
-  println(s"Function Map test: ${newList.functionMap((x:Int) => s"s$x").toString}")
+  println(s"Function Filter test: ${newList.filter(x => x % 2 == 0).toString}")
+  println(s"Function Map test: ${newList.map((x:Int) => s"s$x").toString}")
+  println(s"FlatMap test: ${newList.flatMap( x => EmptyGenericList.add(s"s${x}").add(s"s${x+1}")).toString}")
 
 
 
   val anotherList = new ConsGeneric[Int](1, new ConsGeneric[Int](3, new ConsGeneric[Int](5, new ConsGeneric[Int](7, EmptyGenericList))))
   println("Foreach test: ")
-  anotherList.foreach(x => println(s"Foreach: $x"))
+  anotherList.foreach(println)
   def orderFunc(elem1:Int, elem2:Int): Int = elem2-elem1
   val unorderedList = new ConsGeneric[Int](7, new ConsGeneric[Int](10, new ConsGeneric[Int](3, new ConsGeneric[Int](1, EmptyGenericList))))
   println(s"Sort test: ${unorderedList.sort(orderFunc).toString}")
@@ -247,7 +286,12 @@ object Generics extends App {
 
   println(s"fold test: ${zipListA.fold(0)((x:Int,y:Int) => x+y)}")
 
+  //Supports For-comprenhension?
+  for {
+    curr1:Int <- zipListA
+    curr2:Int <- zipListB
 
+  } yield println(s"For-c: $curr1 - $curr2")
 
 
 
